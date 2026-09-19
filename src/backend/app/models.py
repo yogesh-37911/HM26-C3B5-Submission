@@ -208,7 +208,7 @@ class SLARule(Base):
     target_hours: Mapped[int] = mapped_column(Integer)
     is_demo_value: Mapped[bool] = mapped_column(Boolean, default=True)
     note: Mapped[str] = mapped_column(
-        Text, default="Configurable demonstration SLA for HackMysuru; not MCC policy."
+        Text, default="Configurable demonstration SLA for Mysuru CivicPulse; not MCC policy."
     )
 
 

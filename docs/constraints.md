@@ -1,7 +1,6 @@
 # Constraints
 
-Direct answers to the five hard constraints in the HackMysuru problem
-statement.
+Direct answers to the five core problem constraints for Mysuru CivicPulse.
 
 ## 1. People will lie
 

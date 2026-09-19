@@ -290,5 +290,5 @@ background task with batched processing and a polled status endpoint,
 specifically so the UI never blocks on it — the production path
 (queue-based ingestion, worker pool, materialized dashboard aggregates) is
 documented as future work in `docs/limitations.md` rather than built, since
-a 72-hour hackathon MVP should demonstrate the *pattern*, not stand up a
+the CivicPulse MVP demonstrates the *pattern*, not standing up a
 message broker.

@@ -50,7 +50,7 @@ def test_invalid_token_is_rejected(client):
 # ------------------------------------------------------------------- RBAC
 def test_citizen_cannot_access_admin_jurisdiction_api(client):
     r = client.post("/api/jurisdictions/version", headers=auth(client, "citizen@demo.local"),
-                    json={"jurisdiction_id": 1, "version_label": "hack-2027",
+                    json={"jurisdiction_id": 1, "version_label": "pulse-2027",
                           "effective_from": "2027-01-01T00:00:00Z",
                           "boundary": [[12.3, 76.6], [12.31, 76.6], [12.31, 76.61]]})
     assert r.status_code == 403
@@ -58,7 +58,7 @@ def test_citizen_cannot_access_admin_jurisdiction_api(client):
 
 def test_field_worker_cannot_create_boundary_versions(client):
     r = client.post("/api/jurisdictions/version", headers=auth(client, "worker@demo.local"),
-                    json={"jurisdiction_id": 1, "version_label": "hack-2028",
+                    json={"jurisdiction_id": 1, "version_label": "pulse-2028",
                           "effective_from": "2028-01-01T00:00:00Z",
                           "boundary": [[12.3, 76.6], [12.31, 76.6], [12.31, 76.61]]})
     assert r.status_code == 403

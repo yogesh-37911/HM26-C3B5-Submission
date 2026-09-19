@@ -1,6 +1,6 @@
 """Jurisdiction routing against *versioned* boundaries.
 
-HackMysuru explicitly flags that Mysuru's boundaries are changing. So nothing
+Mysuru CivicPulse explicitly handles that Mysuru's boundaries are changing. So nothing
 in this system says "Kuvempunagar belongs to MCC". Instead:
 
     Jurisdiction (stable identity: authority + ward)

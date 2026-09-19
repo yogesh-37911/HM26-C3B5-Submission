@@ -480,7 +480,7 @@ def main() -> None:
                   "Re-run with --reset to rebuild.")
             return
 
-        print("Seeding synthetic demonstration data for HackMysuru ...")
+        print("Seeding synthetic demonstration data for Mysuru CivicPulse ...")
         cats = seed_categories(db)
         jurs = seed_jurisdictions(db)
         db.commit()
@@ -495,7 +495,7 @@ def main() -> None:
         print(f"  demo login password: {DEMO_PASSWORD}")
         print("  accounts: citizen@demo.local / officer@demo.local / "
               "worker@demo.local / admin@demo.local")
-        print("\n  Demo dataset - synthetic data for HackMysuru demonstration.")
+        print("\n  Demo dataset - synthetic data for Mysuru CivicPulse demonstration.")
         print("  These records do not represent real Mysuru civic data.")
     finally:
         db.close()

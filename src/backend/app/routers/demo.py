@@ -273,6 +273,6 @@ def demo_stats(db: Session = Depends(get_db)):
         "complaints": db.scalar(select(func.count(Complaint.id))) or 0,
         "synthetic": db.scalar(select(func.count(Complaint.id)).where(
             Complaint.is_synthetic.is_(True))) or 0,
-        "dataset_label": ("Demo dataset - synthetic data for HackMysuru "
+        "dataset_label": ("Demo dataset - synthetic data for Mysuru CivicPulse "
                           "demonstration. Not real MCC records."),
     }

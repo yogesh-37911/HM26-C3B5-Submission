@@ -1,6 +1,6 @@
 # Known Limitations
 
-Written honestly, as required. This is a 72-hour hackathon MVP, not a
+Written honestly, as required. This is an initial CivicPulse MVP, not a
 production civic system.
 
 1. **Synthetic demo dataset.** All 500+ complaints, the 65-ward city

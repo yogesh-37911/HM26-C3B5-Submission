@@ -1,7 +1,7 @@
 """Demonstration reference data for Mysuru.
 
 IMPORTANT: locality coordinates and boundary polygons here are APPROXIMATE
-DEMONSTRATION GEOGRAPHY generated for HackMysuru. They are not authoritative
+DEMONSTRATION GEOGRAPHY generated for Mysuru CivicPulse. They are not authoritative
 MCC ward boundaries and must be replaced with official GIS data before any
 real deployment. See docs/limitations.md.
 """

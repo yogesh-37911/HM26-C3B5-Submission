@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/dashboard", tags=["public-dashboard"])
 OPEN_STATUSES = ["SUBMITTED", "VALIDATING", "ROUTED", "ASSIGNED",
                  "IN_PROGRESS", "FIELD_VERIFIED", "REOPENED"]
 
-DISCLAIMER = ("Demo dataset - synthetic data generated for HackMysuru "
+DISCLAIMER = ("Demo dataset - synthetic data generated for Mysuru CivicPulse "
               "demonstration. These figures do not represent real Mysuru "
               "civic records.")
 

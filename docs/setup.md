@@ -17,7 +17,7 @@ No Postgres, Docker, or paid API keys are required for the default setup.
 ## 1. Clone and enter the repo
 
 ```bash
-cd TEAMID-submission
+cd Mysuru-Pulse
 ```
 
 ## 2. Backend setup

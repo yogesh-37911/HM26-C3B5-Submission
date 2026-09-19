@@ -56,7 +56,7 @@ async def validation_handler(request: Request, exc: RequestValidationError):
 
 @app.on_event("startup")
 def on_startup() -> None:
-    # For the hackathon MVP the schema is created from the models. A production
+    # For the CivicPulse MVP the schema is created from the models. A production
     # deployment uses Alembic migrations; see docs/setup.md.
     Base.metadata.create_all(bind=engine)
     import os

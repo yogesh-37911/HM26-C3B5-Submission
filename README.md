@@ -3,10 +3,10 @@
 **"From complaint to closure - before civic issues are forgotten."**
 
 An explainable civic intelligence platform that routes, verifies,
-prioritizes and tracks civic complaints for Mysuru - built for HackMysuru
-1.0, Phase 1, addressing **Sub-problem 2: Follow-through**.
+prioritizes and tracks civic complaints for Mysuru - Mysuru CivicPulse,
+addressing **Sub-problem 2: Follow-through**.
 
-> Demo dataset - synthetic data for HackMysuru demonstration. Screenshots
+> Demo dataset - synthetic data for Mysuru CivicPulse demonstration. Screenshots
 > and statistics in this document do not represent real Mysuru civic
 > records.
 

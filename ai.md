@@ -1,6 +1,6 @@
 # AI Usage Disclosure
 
-Written honestly and completely, as required by the HackMysuru submission
+Written honestly and completely, for the Mysuru CivicPulse project
 guidelines.
 
 ## 1. AI tools used during development
@@ -29,7 +29,7 @@ Claude generated:
 
 Every generated file was reviewed for:
 
-- Correctness against the stated hackathon requirements (the sub-problem
+- Correctness against the core system requirements (the sub-problem
   focus, the five hard constraints, the required repository structure).
 - Security: RBAC boundaries, object-level authorisation (IDOR checks),
   input validation, file-upload magic-byte verification, and confirmation

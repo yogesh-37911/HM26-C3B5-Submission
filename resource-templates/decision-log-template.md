@@ -19,7 +19,7 @@ One entry per significant engineering decision. Convert to PDF for submission.
 ## Worked example (from this project)
 
 ### Decision: Explainable rule-based scoring instead of a trained ML model
-- **Date:** Hackathon build
+- **Date:** Initial build
 - **Context:** Need a Neglect Risk Score and Priority Score that an officer
   can act on and contest.
 - **Options considered:**
@@ -40,7 +40,7 @@ One entry per significant engineering decision. Convert to PDF for submission.
     replace the heuristic later without touching any caller.
 
 ### Decision: Versioned jurisdiction boundaries instead of a static ward map
-- **Context:** HackMysuru explicitly flags that Mysuru's boundaries are
+- **Context:** Mysuru CivicPulse explicitly handles that Mysuru's boundaries are
   changing.
 - **Options considered:**
   1. Hard-code `locality -> ward` - simple, but wrong the moment a
