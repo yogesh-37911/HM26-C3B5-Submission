@@ -17,28 +17,30 @@ function Logomark() {
   );
 }
 
-const NAV_BY_ROLE: Record<string, { to: string; label: string }[]> = {
-  CITIZEN: [
-    { to: "/citizen/report", label: "Report an issue" },
-    { to: "/citizen/complaints", label: "My complaints" },
-  ],
-  OFFICER: [
-    { to: "/officer/queue", label: "Queue" },
-  ],
-  FIELD_WORKER: [{ to: "/field/tasks", label: "My tasks" }],
-  ADMIN: [
-    { to: "/officer/queue", label: "Queue" },
-    { to: "/admin/jurisdictions", label: "Jurisdictions" },
-    { to: "/admin/demo", label: "Demo console" },
-  ],
-};
 
 export function Shell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
-  const { lang, setLang } = useLang();
+  const { lang, setLang, t } = useLang();
   const navigate = useNavigate();
 
-  const roleNav = user ? NAV_BY_ROLE[user.role] || [] : [];
+  const roleNav = user
+    ? user.role === "CITIZEN"
+      ? [
+          { to: "/citizen/report", label: t.reportIssue },
+          { to: "/citizen/complaints", label: t.myComplaints },
+        ]
+      : user.role === "OFFICER"
+        ? [{ to: "/officer/queue", label: t.queue }]
+        : user.role === "FIELD_WORKER"
+          ? [{ to: "/field/tasks", label: t.fieldTasks }]
+          : user.role === "ADMIN"
+            ? [
+                { to: "/officer/queue", label: t.queue },
+                { to: "/admin/jurisdictions", label: t.jurisdictions },
+                { to: "/admin/demo", label: t.demoConsole },
+              ]
+            : []
+    : [];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -47,7 +49,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
             <Logomark />
             <span className="font-[family-name:var(--font-display)] text-lg text-[var(--color-ink)] leading-none">
-              CivicPulse
+              {lang === "kn" ? "ಸಿವಿಕ್‌ಪಲ್ಸ್" : "CivicPulse"}
             </span>
           </Link>
 
@@ -58,7 +60,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 `px-3 py-2 rounded-md transition-colors ${isActive ? "text-[var(--color-teal-700)] font-medium" : "text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]"}`
               }
             >
-              Public dashboard
+              {t.publicDashboard}
             </NavLink>
             {roleNav.map((item) => (
               <NavLink
@@ -77,13 +79,15 @@ export function Shell({ children }: { children: ReactNode }) {
             <div className="flex rounded-full border border-[var(--color-line-strong)] p-0.5 text-xs">
               <button
                 onClick={() => setLang("en")}
-                className={`px-2.5 py-1 rounded-full transition-colors ${lang === "en" ? "bg-[var(--color-teal-700)] text-white" : "text-[var(--color-ink-soft)]"}`}
+                className={`px-2.5 py-1 rounded-full transition-colors ${lang === "en" ? "bg-[var(--color-teal-700)] text-white font-medium" : "text-[var(--color-ink-soft)]"}`}
+                title="Switch to English"
               >
                 EN
               </button>
               <button
                 onClick={() => setLang("kn")}
-                className={`px-2.5 py-1 rounded-full transition-colors ${lang === "kn" ? "bg-[var(--color-teal-700)] text-white" : "text-[var(--color-ink-soft)]"}`}
+                className={`px-2.5 py-1 rounded-full transition-colors ${lang === "kn" ? "bg-[var(--color-teal-700)] text-white font-medium" : "text-[var(--color-ink-soft)]"}`}
+                title="ಕನ್ನಡಕ್ಕೆ ಬದಲಾಯಿಸಿ"
               >
                 ಕನ್ನಡ
               </button>
@@ -99,12 +103,12 @@ export function Shell({ children }: { children: ReactNode }) {
                     navigate("/");
                   }}
                 >
-                  Log out
+                  {t.logout}
                 </Button>
               </div>
             ) : (
               <Button size="sm" onClick={() => navigate("/login")}>
-                Log in
+                {t.login}
               </Button>
             )}
           </div>
@@ -113,8 +117,8 @@ export function Shell({ children }: { children: ReactNode }) {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">{children}</main>
       <footer className="border-t border-[var(--color-line)] py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[var(--color-ink-soft)]">
-          <p>Mysuru CivicPulse - HackMysuru 1.0, Phase 1 submission.</p>
-          <p>Demo dataset - synthetic data for HackMysuru demonstration.</p>
+          <p>{t.footerSubmission}</p>
+          <p>{t.demoDataset}</p>
         </div>
       </footer>
     </div>

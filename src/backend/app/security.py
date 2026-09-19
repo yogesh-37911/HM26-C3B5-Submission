@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import bcrypt
 from sqlalchemy.orm import Session
@@ -58,12 +58,14 @@ def decode_token(token: str) -> dict:
 
 
 def get_current_user(
+    token_param: str | None = Query(None, alias="token"),
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: Session = Depends(get_db),
 ) -> User:
-    if creds is None:
+    raw_token = creds.credentials if creds else token_param
+    if not raw_token:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authentication required")
-    payload = decode_token(creds.credentials)
+    payload = decode_token(raw_token)
     user = db.get(User, int(payload["sub"]))
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or inactive")
@@ -71,13 +73,15 @@ def get_current_user(
 
 
 def get_optional_user(
+    token_param: str | None = Query(None, alias="token"),
     creds: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: Session = Depends(get_db),
 ) -> User | None:
-    if creds is None:
+    raw_token = creds.credentials if creds else token_param
+    if not raw_token:
         return None
     try:
-        payload = decode_token(creds.credentials)
+        payload = decode_token(raw_token)
     except HTTPException:
         return None
     return db.get(User, int(payload["sub"]))
@@ -110,8 +114,8 @@ def assert_jurisdiction_access(user: User, jurisdiction_id: int | None) -> None:
     if user.role == Role.ADMIN.value:
         return
     if user.role == Role.OFFICER.value:
-        if user.jurisdiction_id is None:
-            return  # city-wide officer
+        if user.jurisdiction_id is None or jurisdiction_id is None:
+            return  # city-wide officer or newly submitted unrouted complaint
         if jurisdiction_id != user.jurisdiction_id:
             raise HTTPException(
                 status.HTTP_403_FORBIDDEN,
@@ -119,3 +123,4 @@ def assert_jurisdiction_access(user: User, jurisdiction_id: int | None) -> None:
             )
         return
     raise HTTPException(status.HTTP_403_FORBIDDEN, "Not permitted.")
+

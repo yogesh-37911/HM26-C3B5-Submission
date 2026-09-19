@@ -135,8 +135,15 @@ export interface ComplaintDetail extends ComplaintSummary {
   };
   duplicates: { complaint_id: number; public_id: string | null; similarity_pct: number;
     distance_m: number; decision: string }[];
-  evidence: { id: number; filename: string; sha256: string; size_bytes: number;
-    stage: string; created_at: string }[];
+  evidence: {
+    id: number;
+    filename: string;
+    sha256: string;
+    size_bytes: number;
+    stage: string;
+    url?: string;
+    created_at: string;
+  }[];
   timeline: TimelineEvent[];
   followups: { id: number; message: string; kind: string; at: string }[];
 }
@@ -194,6 +201,8 @@ export interface MapMarker {
   risk_level: string;
   age_hours: number;
   jurisdiction: string | null;
+  jurisdiction_id?: number | null;
+  ward?: number | null;
 }
 
 export interface FieldTask {

@@ -156,7 +156,7 @@ def seed_users(db, jurs) -> dict:
 
     demo_accounts = [
         ("citizen@demo.local", "Demo Citizen", Role.CITIZEN, None),
-        ("officer@demo.local", "Demo Officer", Role.OFFICER, jurs[41].id),   # Ward 42
+        ("officer@demo.local", "Demo Officer", Role.OFFICER, None),   # City-wide Nodal Officer
         ("worker@demo.local", "Demo Field Worker", Role.FIELD_WORKER, jurs[41].id),
         ("admin@demo.local", "Demo Admin", Role.ADMIN, None),
     ]

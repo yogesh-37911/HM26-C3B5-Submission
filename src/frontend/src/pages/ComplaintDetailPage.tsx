@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
-import { api, ApiError } from "../lib/api";
+import { api, ApiError, BASE_URL } from "../lib/api";
 import type { ComplaintDetail as ComplaintDetailT } from "../lib/types";
 import { useAuth } from "../lib/auth";
+import { useLang } from "../lib/i18n";
 import { Button, Callout, FactorBar, Spinner } from "../components/ui/Primitives";
 import { PriorityBadge, RiskBadge, SlaBadge, StatusBadge, VerificationBadge } from "../components/ui/Badges";
 import { Timeline } from "../components/ui/Timeline";
@@ -24,6 +25,7 @@ const NEXT_STATUS: Record<string, string[]> = {
 export function ComplaintDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { t } = useLang();
   const [complaint, setComplaint] = useState<ComplaintDetailT | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [followupMsg, setFollowupMsg] = useState("");
@@ -31,9 +33,122 @@ export function ComplaintDetailPage() {
   const [workers, setWorkers] = useState<{ id: number; full_name: string }[]>([]);
   const [selectedWorker, setSelectedWorker] = useState<string>("");
 
+  const [selectedPhoto, setSelectedPhoto] = useState<ComplaintDetailT["evidence"][0] | null>(null);
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [deletingEvidenceId, setDeletingEvidenceId] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [imgLoading, setImgLoading] = useState(true);
+  const [imgError, setImgError] = useState(false);
+
+  // Send Update / Note to Officer state
+  const [showNotifyOfficer, setShowNotifyOfficer] = useState(false);
+  const [officerNote, setOfficerNote] = useState("");
+  const [sendingNote, setSendingNote] = useState(false);
+  const [noteSentSuccess, setNoteSentSuccess] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const token = localStorage.getItem("civicpulse.token") || "";
+
   const isOfficerLike = user?.role === "OFFICER" || user?.role === "ADMIN";
   const isFieldWorker = user?.role === "FIELD_WORKER";
   const isCitizen = user?.role === "CITIZEN";
+
+  function getEvidenceUrl(ev: ComplaintDetailT["evidence"][0]) {
+    const rawPath = ev.url || `/api/complaints/${complaint?.public_id || id}/evidence/${ev.id}`;
+    return `${BASE_URL}${rawPath}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+  }
+
+  function formatBytes(bytes: number): string {
+    if (!bytes) return "0 B";
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+
+  async function handleEvidenceUpload(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !id) return;
+    setEvidenceError(null);
+    const validTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (!validTypes.includes(f.type.toLowerCase())) {
+        setEvidenceError("Only JPEG, PNG, and WebP images are allowed.");
+        return;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        setEvidenceError(`"${f.name}" exceeds the 5 MB file size limit.`);
+        return;
+      }
+    }
+
+    setUploadingEvidence(true);
+    try {
+      const stage = (isOfficerLike || isFieldWorker) ? "FIELD" : "REPORT";
+      for (let i = 0; i < files.length; i++) {
+        const fd = new FormData();
+        fd.append("file", files[i]);
+        await api.upload(`/api/complaints/${id}/evidence`, fd, { stage });
+      }
+      await load();
+    } catch (err) {
+      setEvidenceError(err instanceof ApiError ? err.message : "Failed to upload photo evidence.");
+    } finally {
+      setUploadingEvidence(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleDeleteEvidence(evidenceId: number) {
+    if (!id) return;
+    setDeletingEvidenceId(evidenceId);
+    setEvidenceError(null);
+    try {
+      await api.delete(`/api/complaints/${id}/evidence/${evidenceId}`);
+      if (selectedPhoto?.id === evidenceId) setSelectedPhoto(null);
+      setDeleteConfirmId(null);
+      await load();
+    } catch (err) {
+      setEvidenceError(err instanceof ApiError ? err.message : "Failed to delete photo evidence.");
+    } finally {
+      setDeletingEvidenceId(null);
+    }
+  }
+
+  async function handleSendNoteToOfficer(e: FormEvent) {
+    e.preventDefault();
+    if (!id || !officerNote.trim()) return;
+    setSendingNote(true);
+    setError(null);
+    try {
+      await api.post(`/api/complaints/${id}/followup`, {
+        message: officerNote.trim(),
+        kind: "CITIZEN_UPDATE",
+      });
+      setOfficerNote("");
+      setNoteSentSuccess(true);
+      setTimeout(() => setNoteSentSuccess(false), 5000);
+      setShowNotifyOfficer(false);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not send message to officer.");
+    } finally {
+      setSendingNote(false);
+    }
+  }
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setSelectedPhoto(null);
+    }
+    if (selectedPhoto) {
+      setImgLoading(true);
+      setImgError(false);
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [selectedPhoto]);
 
   async function load() {
     if (!id) return;
@@ -150,7 +265,7 @@ export function ComplaintDetailPage() {
         </div>
 
         {typeof c.latitude === "number" && (
-          <div className="mt-5">
+          <div className="mt-5 relative isolate z-0">
             <ComplaintMap
               markers={[
                 {
@@ -171,6 +286,219 @@ export function ComplaintDetailPage() {
             />
           </div>
         )}
+
+        {/* Evidence & Attached Photos Section */}
+        <section className="mt-8 border-t border-[var(--color-line)] pt-6">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-[family-name:var(--font-display)] text-lg">
+                {t.attachedPhotos}
+              </h2>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--color-paper-raised)] border border-[var(--color-line-strong)] text-[var(--color-ink-soft)]">
+                {c.evidence.length}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-good-700)] bg-[var(--color-good-100)] px-2 py-0.5 rounded-full">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5"/>
+                </svg>
+                {t.sharedWithOfficerBadge}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {isCitizen && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setShowNotifyOfficer(!showNotifyOfficer)}
+                >
+                  {t.notifyOfficer}
+                </Button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleEvidenceUpload}
+              />
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={busy || uploadingEvidence}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploadingEvidence ? t.uploading : `+ ${isOfficerLike || isFieldWorker ? t.addFieldPhoto : t.addPhoto}`}
+              </Button>
+            </div>
+          </div>
+
+          {/* Send Update to Officer Form / Modal Banner */}
+          {showNotifyOfficer && (
+            <div className="mb-4 p-4 rounded-lg border border-[var(--color-teal-600)] bg-[var(--color-teal-100)]/20 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-[var(--color-teal-800)] flex items-center gap-1.5">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m22 2-7 20-4-9-9-4Z"/>
+                    <path d="M22 2 11 13"/>
+                  </svg>
+                  {t.notifyOfficer}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowNotifyOfficer(false)}
+                  className="text-xs text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-xs text-[var(--color-ink-soft)] mb-2.5">
+                {t.notifyOfficerNotice}
+              </p>
+              <form onSubmit={handleSendNoteToOfficer} className="space-y-2">
+                <textarea
+                  required
+                  rows={2}
+                  value={officerNote}
+                  onChange={(e) => setOfficerNote(e.target.value)}
+                  placeholder={t.typeMessage}
+                  className="w-full text-xs rounded-md border border-[var(--color-line-strong)] bg-[var(--color-paper-raised)] p-2.5 outline-none focus:border-[var(--color-teal-600)] resize-none"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowNotifyOfficer(false)}
+                  >
+                    {t.cancel}
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={sendingNote || !officerNote.trim()}
+                  >
+                    {sendingNote ? t.sending : t.send}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {noteSentSuccess && (
+            <div className="mb-3 p-3 rounded-md bg-[var(--color-good-100)] text-[var(--color-good-700)] text-xs font-medium flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              {t.updateSent}
+            </div>
+          )}
+
+          {evidenceError && (
+            <div className="mb-3">
+              <Callout tone="danger">{evidenceError}</Callout>
+            </div>
+          )}
+
+          {c.evidence.length === 0 ? (
+            <div className="border border-dashed border-[var(--color-line-strong)] rounded-lg p-6 text-center bg-[var(--color-paper-raised)]">
+              <p className="text-xs text-[var(--color-ink-soft)] mb-2">{t.noPhotosAttached}</p>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {t.uploadPhoto}
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {c.evidence.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="group rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-paper-raised)] overflow-hidden shadow-xs hover:border-[var(--color-teal-600)] transition-all flex flex-col justify-between"
+                >
+                  <div
+                    className="h-44 bg-[var(--color-line)] relative cursor-pointer overflow-hidden flex items-center justify-center"
+                    onClick={() => setSelectedPhoto(ev)}
+                  >
+                    <img
+                      src={getEvidenceUrl(ev)}
+                      alt={ev.filename}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 text-white text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 shadow">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="11" cy="11" r="8"/>
+                          <path d="m21 21-4.3-4.3"/>
+                          <path d="M11 8v6"/>
+                          <path d="M8 11h6"/>
+                        </svg>
+                        {t.clickToEnlarge}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="p-3">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          ev.stage === "FIELD"
+                            ? "bg-[var(--color-gold-100)] text-[var(--color-gold-700)]"
+                            : "bg-[var(--color-teal-100)] text-[var(--color-teal-700)]"
+                        }`}
+                      >
+                        {ev.stage === "FIELD" ? t.fieldPhoto : t.reportPhoto}
+                      </span>
+                      <span className="text-[11px] text-[var(--color-ink-soft)] font-mono">
+                        {formatBytes(ev.size_bytes)}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-[var(--color-ink)] truncate" title={ev.filename}>
+                      {ev.filename}
+                    </p>
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-[var(--color-line)] text-[11px] text-[var(--color-ink-soft)]">
+                      <span>{formatDateTime(ev.created_at)}</span>
+
+                      {/* Delete Photo Button with confirmation */}
+                      {deleteConfirmId === ev.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={deletingEvidenceId === ev.id}
+                            onClick={() => handleDeleteEvidence(ev.id)}
+                            className="text-[10px] font-bold text-[var(--color-danger-700)] hover:underline"
+                          >
+                            {deletingEvidenceId === ev.id ? "..." : t.delete}
+                          </button>
+                          <span className="text-[var(--color-line-strong)]">/</span>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="text-[10px] text-[var(--color-ink-soft)] hover:underline"
+                          >
+                            {t.cancel}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmId(ev.id)}
+                          className="text-[11px] text-[var(--color-danger-700)] hover:text-[var(--color-danger-800)] hover:underline font-medium"
+                          title={t.deletePhoto}
+                        >
+                          {t.deletePhoto}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {c.risk_explanation && (
           <section className="mt-8">
@@ -349,6 +677,102 @@ export function ComplaintDetailPage() {
           {c.is_synthetic && <p className="italic">Synthetic demo record.</p>}
         </div>
       </div>
+
+      {/* Lightbox / Modal for Viewing Photo Evidence Full Screen (High z-index to prevent map overlay) */}
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-150"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div
+            className="relative max-w-4xl w-full bg-[var(--color-paper-raised)] border border-[var(--color-line-strong)] rounded-xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-[var(--color-line)]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      selectedPhoto.stage === "FIELD"
+                        ? "bg-[var(--color-gold-100)] text-[var(--color-gold-700)]"
+                        : "bg-[var(--color-teal-100)] text-[var(--color-teal-700)]"
+                    }`}
+                  >
+                    {selectedPhoto.stage === "FIELD" ? t.fieldPhoto : t.reportPhoto}
+                  </span>
+                  <span className="text-xs font-[family-name:var(--font-mono)] text-[var(--color-ink-soft)]">
+                    {c.public_id}
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-[var(--color-ink)] mt-0.5 truncate max-w-md">{selectedPhoto.filename}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Delete button from modal */}
+                <button
+                  type="button"
+                  disabled={deletingEvidenceId === selectedPhoto.id}
+                  onClick={() => {
+                    if (window.confirm(t.confirmDeletePhoto)) {
+                      handleDeleteEvidence(selectedPhoto.id);
+                    }
+                  }}
+                  className="px-2.5 py-1 text-xs text-[var(--color-danger-700)] hover:bg-[var(--color-danger-100)] rounded-md font-medium transition-colors"
+                  title={t.deletePhoto}
+                >
+                  {deletingEvidenceId === selectedPhoto.id ? "..." : t.deletePhoto}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPhoto(null)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--color-ink-soft)] hover:text-[var(--color-ink)] hover:bg-[var(--color-line)] text-xl transition-colors"
+                  title={t.close}
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 flex items-center justify-center bg-black/95 max-h-[70vh] min-h-[300px] overflow-hidden relative">
+              {imgLoading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Spinner label="Loading photo..." />
+                </div>
+              )}
+              {imgError ? (
+                <div className="text-center p-8 text-white/80">
+                  <p className="text-sm font-medium mb-2">Could not display photo preview</p>
+                  <a
+                    href={getEvidenceUrl(selectedPhoto)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[var(--color-teal-300)] underline font-medium"
+                  >
+                    Open photo in new tab &rarr;
+                  </a>
+                </div>
+              ) : (
+                <img
+                  src={getEvidenceUrl(selectedPhoto)}
+                  alt={selectedPhoto.filename}
+                  onLoad={() => setImgLoading(false)}
+                  onError={() => { setImgLoading(false); setImgError(true); }}
+                  className={`max-h-[65vh] max-w-full object-contain rounded transition-opacity duration-200 ${imgLoading ? "opacity-0" : "opacity-100"}`}
+                />
+              )}
+            </div>
+
+            <div className="p-4 text-xs text-[var(--color-ink-soft)] flex items-center justify-between flex-wrap gap-2 border-t border-[var(--color-line)] bg-[var(--color-paper-raised)]">
+              <div>
+                <span>Uploaded: {formatDateTime(selectedPhoto.created_at)}</span> &middot;{" "}
+                <span>Size: {formatBytes(selectedPhoto.size_bytes)}</span>
+              </div>
+              <div className="font-mono text-[11px] truncate max-w-xs" title={`Full SHA256: ${selectedPhoto.sha256}`}>
+                SHA-256: {selectedPhoto.sha256}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

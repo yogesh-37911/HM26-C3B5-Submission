@@ -59,10 +59,39 @@ def on_startup() -> None:
     # For the hackathon MVP the schema is created from the models. A production
     # deployment uses Alembic migrations; see docs/setup.md.
     Base.metadata.create_all(bind=engine)
+    import os
+    os.makedirs(settings.EVIDENCE_DIR, exist_ok=True)
     if settings.JWT_SECRET.startswith("dev-only") and settings.ENV == "production":
         raise RuntimeError("JWT_SECRET must be set in production.")
-    log.info("CivicPulse started (env=%s, db=%s)", settings.ENV,
-             settings.DATABASE_URL.split("://")[0])
+    log.info("CivicPulse started (env=%s, db=%s, evidence=%s)", settings.ENV,
+             settings.DATABASE_URL.split("://")[0], settings.EVIDENCE_DIR)
+
+    # Ensure demo accounts and demonstration dataset exist if database is unseeded
+    import sys
+    import os
+    from sqlalchemy import select, func
+    from .db import SessionLocal
+    from .models import User
+    with SessionLocal() as db:
+        user_count = db.scalar(select(func.count(User.id))) or 0
+        if user_count == 0:
+            log.info("Empty database detected; auto-seeding demonstration data...")
+            try:
+                scripts_dir = os.path.abspath(os.path.join(settings.BACKEND_DIR, "..", "scripts"))
+                if scripts_dir not in sys.path:
+                    sys.path.insert(0, scripts_dir)
+                import seed
+                cats = seed.seed_categories(db)
+                jurs = seed.seed_jurisdictions(db)
+                db.commit()
+                users = seed.seed_users(db, jurs)
+                db.commit()
+                seed.seed_complaints(db, cats, jurs, users, 150)
+                seed.seed_boundary_change(db, jurs)
+                db.commit()
+                log.info("Auto-seeded demo accounts and complaints successfully.")
+            except Exception as e:
+                log.warning("Auto-seeding encountered an issue: %s", e)
 
 
 @app.get("/api/health", tags=["meta"])

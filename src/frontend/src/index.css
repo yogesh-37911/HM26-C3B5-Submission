@@ -72,6 +72,12 @@ body {
   font-family: var(--font-kannada);
 }
 
+[lang="kn"] h1, [lang="kn"] h2, [lang="kn"] h3, [lang="kn"] h4,
+.lang-kn h1, .lang-kn h2, .lang-kn h3, .lang-kn h4,
+[lang="kn"] [class*="font-display"], .lang-kn [class*="font-display"] {
+  font-family: var(--font-kannada), var(--font-sans);
+}
+
 ::selection {
   background: var(--color-gold-300);
   color: var(--color-ink);

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 #: Deliberately a permissive pattern rather than pydantic's EmailStr, which
@@ -34,15 +34,14 @@ class TokenResponse(BaseModel):
 
 
 class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     email: str
     full_name: str
     role: str
     language: str
     jurisdiction_id: int | None = None
-
-    class Config:
-        from_attributes = True
 
 
 class ComplaintCreate(BaseModel):

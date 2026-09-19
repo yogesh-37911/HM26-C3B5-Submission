@@ -5,6 +5,7 @@ import os
 from datetime import timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
@@ -296,6 +297,7 @@ def get_complaint(ident: str, db: Session = Depends(get_db),
         } for d in dups],
         "evidence": [{"id": e.id, "filename": e.filename, "sha256": e.sha256,
                       "size_bytes": e.size_bytes, "stage": e.stage,
+                      "url": f"/api/complaints/{c.public_id}/evidence/{e.id}",
                       "created_at": _aware(e.created_at).isoformat()}
                      for e in c.evidence],
         "timeline": [{
@@ -486,6 +488,63 @@ def reopen(ident: str, body: FollowupRequest, db: Session = Depends(get_db),
     return complaint_summary(db, c, include_private=True)
 
 
+def _generate_demo_evidence_svg(public_id: str, filename: str, stage: str, created_at) -> str:
+    stage_upper = (stage or "REPORT").upper()
+    stage_label = "FIELD VERIFICATION" if stage_upper == "FIELD" else "CITIZEN REPORT"
+    date_str = str(created_at)[:19] if created_at else "Demonstration record"
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#121D18" />
+      <stop offset="100%" stop-color="#1E332B" />
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#bg)"/>
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+  <g transform="translate(400, 180)">
+    <circle r="56" fill="rgba(20, 102, 85, 0.4)" stroke="#1F7A65" stroke-width="2"/>
+    <path d="M -22 -10 L -14 -18 L 14 -18 L 22 -10 L 28 -10 C 32 -10 34 -8 34 -4 L 34 22 C 34 26 32 28 28 28 L -28 28 C -32 28 -34 26 -34 22 L -34 -4 C -34 -8 -32 -10 -28 -10 Z" fill="none" stroke="#68D391" stroke-width="3" stroke-linejoin="round"/>
+    <circle cx="0" cy="9" r="12" fill="none" stroke="#68D391" stroke-width="3"/>
+    <circle cx="20" cy="-2" r="3" fill="#68D391"/>
+  </g>
+  <text x="400" y="275" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="bold" fill="#F7FAFC" text-anchor="middle">
+    {stage_label} EVIDENCE
+  </text>
+  <text x="400" y="305" font-family="'JetBrains Mono', 'SF Mono', Consolas, monospace" font-size="15" fill="#BEE3F8" text-anchor="middle">
+    {public_id} &bull; {filename}
+  </text>
+  <text x="400" y="335" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#A0AEC0" text-anchor="middle">
+    Simulated Demonstration Photo &bull; Recorded: {date_str}
+  </text>
+  <rect x="250" y="370" width="300" height="32" rx="16" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.15)"/>
+  <text x="400" y="391" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" fill="#E2E8F0" text-anchor="middle">
+    CivicPulse Synthetic Evidence Artifact
+  </text>
+</svg>"""
+
+
+@router.get("/{ident}/evidence/{evidence_id}")
+def get_evidence(ident: str, evidence_id: int,
+                 db: Session = Depends(get_db),
+                 user: User = Depends(get_current_user)):
+    c = _load_and_authorise(db, ident, user)
+    ev = db.scalar(select(ComplaintEvidence).where(
+        ComplaintEvidence.id == evidence_id,
+        ComplaintEvidence.complaint_id == c.id,
+    ))
+    if not ev:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Evidence not found")
+
+    if ev.stored_path and os.path.exists(ev.stored_path):
+        return FileResponse(ev.stored_path, media_type=ev.mime_type, filename=ev.filename)
+
+    svg_data = _generate_demo_evidence_svg(c.public_id, ev.filename, ev.stage, ev.created_at)
+    return Response(content=svg_data, media_type="image/svg+xml")
+
+
 @router.post("/{ident}/evidence")
 async def upload_evidence(ident: str, file: UploadFile = File(...),
                           stage: str = Query("REPORT"),
@@ -493,7 +552,12 @@ async def upload_evidence(ident: str, file: UploadFile = File(...),
                           user: User = Depends(get_current_user)):
     c = _load_and_authorise(db, ident, user)
 
-    if file.content_type not in settings.ALLOWED_MIME:
+    stage_clean = (stage or "REPORT").upper()
+    if stage_clean not in {"REPORT", "FIELD"}:
+        stage_clean = "REPORT"
+
+    content_type = (file.content_type or "").lower().split(";")[0].strip()
+    if content_type not in settings.ALLOWED_MIME:
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                             f"Allowed types: {', '.join(settings.ALLOWED_MIME)}")
     data = await file.read()
@@ -512,7 +576,7 @@ async def upload_evidence(ident: str, file: UploadFile = File(...),
 
     os.makedirs(settings.EVIDENCE_DIR, exist_ok=True)
     # Filename is derived from the hash: no path traversal from user input.
-    ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[file.content_type]
+    ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[content_type]
     stored = os.path.join(settings.EVIDENCE_DIR, f"{digest}{ext}")
     if not os.path.exists(stored):
         with open(stored, "wb") as fh:
@@ -520,14 +584,14 @@ async def upload_evidence(ident: str, file: UploadFile = File(...),
 
     ev = ComplaintEvidence(
         complaint_id=c.id, filename=os.path.basename(file.filename or "upload"),
-        stored_path=stored, mime_type=file.content_type, size_bytes=len(data),
-        sha256=digest, uploaded_by_id=user.id, stage=stage)
+        stored_path=stored, mime_type=content_type, size_bytes=len(data),
+        sha256=digest, uploaded_by_id=user.id, stage=stage_clean)
     db.add(ev)
     c.last_action_at = utcnow()
     db.flush()
 
     svc.add_event(db, c, event_type="EVIDENCE_ADDED", actor=user,
-                  note=f"{stage.title()} evidence uploaded ({len(data) // 1024} KB).",
+                  note=f"{stage_clean.title()} evidence uploaded ({len(data) // 1024} KB).",
                   payload={"sha256": digest, "hash_reuse_count": reuse})
     if reuse:
         svc.add_event(db, c, event_type="EVIDENCE_FLAGGED", actor=None,
@@ -540,5 +604,62 @@ async def upload_evidence(ident: str, file: UploadFile = File(...),
     db.commit()
     return {"id": ev.id, "sha256": digest, "size_bytes": len(data),
             "hash_reuse_count": reuse,
+            "url": f"/api/complaints/{c.public_id}/evidence/{ev.id}",
             "verification_status": c.verification_status,
             "flag": "REPEATED_EVIDENCE" if reuse else None}
+
+
+@router.delete("/{ident}/evidence/{evidence_id}")
+def delete_evidence(ident: str, evidence_id: int, request: Request,
+                    db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    c = _load_and_authorise(db, ident, user)
+    ev = db.scalar(select(ComplaintEvidence).where(
+        ComplaintEvidence.id == evidence_id,
+        ComplaintEvidence.complaint_id == c.id,
+    ))
+    if not ev:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Evidence not found")
+
+    # Authorisation rules:
+    # 1. Admin can delete any evidence.
+    # 2. Citizen can delete evidence they uploaded if complaint is not resolved/rejected.
+    # 3. Officer/Field worker can delete evidence for their jurisdiction or uploaded by them.
+    can_delete = False
+    if user.role == Role.ADMIN.value:
+        can_delete = True
+    elif user.role == Role.CITIZEN.value:
+        if ev.uploaded_by_id == user.id and c.status not in {"RESOLVED", "REJECTED"}:
+            can_delete = True
+    elif user.role in {Role.OFFICER.value, Role.FIELD_WORKER.value}:
+        if ev.uploaded_by_id == user.id or user.role == Role.OFFICER.value:
+            can_delete = True
+
+    if not can_delete:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Not permitted to delete this evidence record.")
+
+    # Remove physical file if on disk and not referenced by other evidence
+    if ev.stored_path and os.path.exists(ev.stored_path):
+        other_uses = db.scalar(select(func.count(ComplaintEvidence.id)).where(
+            ComplaintEvidence.sha256 == ev.sha256,
+            ComplaintEvidence.id != ev.id,
+        )) or 0
+        if other_uses == 0:
+            try:
+                os.remove(ev.stored_path)
+            except OSError:
+                pass
+
+    filename_saved = ev.filename
+    stage_saved = ev.stage
+    db.delete(ev)
+    c.last_action_at = utcnow()
+    svc.add_event(db, c, event_type="EVIDENCE_REMOVED", actor=user,
+                  note=f"Evidence '{filename_saved}' ({stage_saved}) was removed.",
+                  payload={"evidence_id": evidence_id, "filename": filename_saved})
+    audit.record(db, actor=user, action="DELETE_EVIDENCE", entity_type="evidence",
+                 entity_id=str(evidence_id), before={"filename": filename_saved, "stage": stage_saved},
+                 ip=request.client.host if request.client else None)
+    db.commit()
+    return {"success": True, "deleted_id": evidence_id}
+

@@ -450,3 +450,150 @@ def test_bad_input_scenarios_run_real_engines(client, seeded):
         r = client.post(f"/api/demo/scenario/{key}", headers=admin)
         assert r.status_code == 200, f"{key}: {r.text}"
         assert r.json()["scenario"] == key
+
+
+def test_evidence_upload_and_retrieval_flow(client, seeded):
+    # 1. Citizen creates a complaint
+    citizen = auth(client, "citizen@demo.local")
+    r = client.post("/api/complaints", json={
+        "title": "Broken road surface near market",
+        "description": "Continuous road damage with large potholes near the main gate.",
+        "category_code": "POTHOLE",
+        "latitude": 12.2860, "longitude": 76.6192,
+    }, headers=citizen)
+    assert r.status_code == 201
+    pub_id = r.json()["complaint"]["public_id"]
+
+    # 2. Citizen uploads PNG evidence
+    png_bytes = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+                 b"\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01"
+                 b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
+    files = {"file": ("leak.png", png_bytes, "image/png")}
+    up = client.post(f"/api/complaints/{pub_id}/evidence?stage=REPORT", files=files, headers=citizen)
+    assert up.status_code == 200, up.text
+    ev_data = up.json()
+    assert "id" in ev_data
+    ev_id = ev_data["id"]
+    assert ev_data["url"] == f"/api/complaints/{pub_id}/evidence/{ev_id}"
+
+    # 3. Citizen fetches complaint detail and verifies evidence presence
+    detail = client.get(f"/api/complaints/{pub_id}", headers=citizen).json()
+    assert len(detail["evidence"]) == 1
+    assert detail["evidence"][0]["id"] == ev_id
+    assert detail["evidence"][0]["stage"] == "REPORT"
+    assert detail["evidence"][0]["url"] == f"/api/complaints/{pub_id}/evidence/{ev_id}"
+
+    # 4. Citizen retrieves the uploaded evidence file
+    get_res = client.get(f"/api/complaints/{pub_id}/evidence/{ev_id}", headers=citizen)
+    assert get_res.status_code == 200
+    assert get_res.content == png_bytes
+
+    # 5. Admin can view/retrieve the citizen's evidence across all jurisdictions
+    admin = auth(client, "admin@demo.local")
+    adm_res = client.get(f"/api/complaints/{pub_id}/evidence/{ev_id}", headers=admin)
+    assert adm_res.status_code == 200
+    assert adm_res.content == png_bytes
+
+    # 6. Officer can view/retrieve evidence for complaints in their jurisdiction
+    officer = auth(client, "officer@demo.local")
+    officer_items = client.get("/api/complaints?page_size=1", headers=officer).json()["items"]
+    assert officer_items, "officer queue should have complaints"
+    off_pid = officer_items[0]["public_id"]
+    # Upload evidence to officer's complaint
+    up_off = client.post(f"/api/complaints/{off_pid}/evidence?stage=FIELD", files=files, headers=officer)
+    assert up_off.status_code == 200
+    off_ev_id = up_off.json()["id"]
+    off_get = client.get(f"/api/complaints/{off_pid}/evidence/{off_ev_id}", headers=officer)
+    assert off_get.status_code == 200
+    assert off_get.content == png_bytes
+
+    # 7. IDOR guard: another citizen cannot access evidence of a complaint they do not own
+    other_citizen = auth(client, "citizen2@demo.local")
+    idor_res = client.get(f"/api/complaints/{pub_id}/evidence/{ev_id}", headers=other_citizen)
+    assert idor_res.status_code == 403
+
+    # 8. Query token authentication works for evidence retrieval (e.g. <img> tags)
+    token_str = citizen["Authorization"].split()[1]
+    token_res = client.get(f"/api/complaints/{pub_id}/evidence/{ev_id}?token={token_str}")
+    assert token_res.status_code == 200
+    assert token_res.content == png_bytes
+
+
+def test_seed_demo_evidence_svg_fallback(client, seeded):
+    # Seeded complaints have synthetic evidence records without physical disk files
+    admin = auth(client, "admin@demo.local")
+    complaints = client.get("/api/complaints?page_size=10", headers=admin).json()["items"]
+    ev_found = None
+    for c in complaints:
+        detail = client.get(f"/api/complaints/{c['public_id']}", headers=admin).json()
+        if detail.get("evidence"):
+            ev_found = (c["public_id"], detail["evidence"][0]["id"])
+            break
+
+    if ev_found:
+        pub_id, ev_id = ev_found
+        res = client.get(f"/api/complaints/{pub_id}/evidence/{ev_id}", headers=admin)
+        assert res.status_code == 200
+        assert "image/svg+xml" in res.headers.get("content-type", "")
+        assert b"<svg" in res.content
+
+
+def test_evidence_delete_flow(client, seeded):
+    citizen = auth(client, "citizen@demo.local")
+    other_citizen = auth(client, "citizen2@demo.local")
+    admin = auth(client, "admin@demo.local")
+
+    # 1. Create a complaint as citizen
+    res = client.post(
+        "/api/complaints",
+        json={
+            "title": "Pothole to test deletion",
+            "description": "Continuous road damage with large potholes near the main gate.",
+            "category_code": "POTHOLE",
+            "latitude": 12.2860,
+            "longitude": 76.6192,
+        },
+        headers=citizen,
+    )
+    assert res.status_code == 201
+    pub_id = res.json()["complaint"]["public_id"]
+
+    # 2. Upload an image
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x01"
+        b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    files = {"file": ("test_delete.png", png_bytes, "image/png")}
+    up_res = client.post(f"/api/complaints/{pub_id}/evidence?stage=REPORT", files=files, headers=citizen)
+    assert up_res.status_code == 200
+    ev_id = up_res.json()["id"]
+
+    # 3. IDOR prevention: other citizen cannot delete this evidence
+    del_other = client.delete(f"/api/complaints/{pub_id}/evidence/{ev_id}", headers=other_citizen)
+    assert del_other.status_code == 403
+
+    # 4. Citizen can delete their own evidence
+    del_own = client.delete(f"/api/complaints/{pub_id}/evidence/{ev_id}", headers=citizen)
+    assert del_own.status_code == 200
+    assert del_own.json()["deleted_id"] == ev_id
+
+    # 5. Subsequent GET should 404
+    get_res = client.get(f"/api/complaints/{pub_id}/evidence/{ev_id}", headers=citizen)
+    assert get_res.status_code == 404
+
+    # 6. Admin can delete any evidence
+    png_bytes2 = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15c4\x00\x00\x00\nIDATx\x9cc\x00\x02"
+        b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    files2 = {"file": ("admin_delete.png", png_bytes2, "image/png")}
+    up_res2 = client.post(f"/api/complaints/{pub_id}/evidence?stage=REPORT", files=files2, headers=citizen)
+    assert up_res2.status_code == 200
+    ev_id2 = up_res2.json()["id"]
+
+    del_adm = client.delete(f"/api/complaints/{pub_id}/evidence/{ev_id2}", headers=admin)
+    assert del_adm.status_code == 200
+
+

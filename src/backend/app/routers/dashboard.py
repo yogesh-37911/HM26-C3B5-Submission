@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
@@ -136,7 +136,7 @@ def explain_ward(jurisdiction_id: int, db: Session = Depends(get_db)):
     """"Why is this area behind?" - narrative reasons, not just a chart."""
     j = db.get(Jurisdiction, jurisdiction_id)
     if not j:
-        return {"error": "Jurisdiction not found"}
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Jurisdiction not found")
 
     now = utcnow()
     open_n = db.scalar(select(func.count(Complaint.id)).where(
@@ -304,6 +304,8 @@ def map_markers(
             "age_hours": round(age_h, 1),
             "jurisdiction": (f"{jur.authority} Ward {jur.ward_number}"
                              if jur and jur.ward_number else (jur.name if jur else None)),
+            "jurisdiction_id": jur.id if jur else None,
+            "ward": jur.ward_number if jur else None,
         })
     return {"total_in_bounds": total, "returned": len(markers), "markers": markers,
             "location_note": ("Marker positions are approximate. Exact reported "

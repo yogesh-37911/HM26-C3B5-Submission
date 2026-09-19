@@ -14,11 +14,16 @@ class Settings:
     APP_NAME: str = "Mysuru CivicPulse API"
     ENV: str = os.getenv("ENV", "development")
 
+    BACKEND_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
     # Default is a local SQLite file so the project runs from a clean machine
     # with zero external services. Set DATABASE_URL to a Postgres DSN for
     # production / Supabase. See docs/setup.md.
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", "sqlite:///./civicpulse.db"
+    _raw_db = os.getenv("DATABASE_URL", "sqlite:///./civicpulse.db")
+    DATABASE_URL: str = (
+        f"sqlite:///{os.path.join(BACKEND_DIR, _raw_db[12:]).replace('\\', '/')}"
+        if _raw_db.startswith("sqlite:///./")
+        else _raw_db
     )
 
     # --- Auth ---
@@ -29,7 +34,12 @@ class Settings:
     # --- Evidence uploads ---
     MAX_UPLOAD_BYTES: int = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
     ALLOWED_MIME: tuple[str, ...] = ("image/jpeg", "image/png", "image/webp")
-    EVIDENCE_DIR: str = os.getenv("EVIDENCE_DIR", "./evidence_store")
+    _raw_evidence_dir: str = os.getenv("EVIDENCE_DIR", "evidence_store")
+    EVIDENCE_DIR: str = (
+        _raw_evidence_dir
+        if os.path.isabs(_raw_evidence_dir)
+        else os.path.abspath(os.path.join(BACKEND_DIR, _raw_evidence_dir))
+    )
 
     # --- Duplicate detection tuning (documented, not magic) ---
     DUP_RADIUS_M: float = float(os.getenv("DUP_RADIUS_M", "150"))
