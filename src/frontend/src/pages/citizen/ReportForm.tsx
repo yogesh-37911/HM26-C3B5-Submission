@@ -119,15 +119,32 @@ export function ReportForm() {
 
   async function handleSubmit() {
     setError(null);
+    if (!title.trim() || title.trim().length < 5) {
+      setError(t.titleMinLength);
+      return;
+    }
+    if (!description.trim() || description.trim().length < 10) {
+      setError(t.descMinLength);
+      return;
+    }
+    if (!categoryCode) {
+      setError(lang === "kn" ? "ದಯವಿಟ್ಟು ವರ್ಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ." : "Please select a category.");
+      return;
+    }
+    if (hasUnresolvedDuplicate) {
+      setError(t.resolveDuplicateNotice);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await api.post<{ complaint: { public_id: string } }>("/api/complaints", {
-        title,
-        description,
+        title: title.trim(),
+        description: description.trim(),
         category_code: categoryCode,
         latitude: lat,
         longitude: lng,
-        landmark: landmark || undefined,
+        landmark: landmark.trim() || undefined,
         idempotency_key: crypto.randomUUID(),
       });
 
@@ -156,7 +173,7 @@ export function ReportForm() {
   }
 
   const hasUnresolvedDuplicate = dupMatches.length > 0 && !acknowledgedDup;
-  const canSubmit = title.length >= 5 && description.length >= 10 && categoryCode && !submitting;
+  const canSubmit = title.trim().length >= 5 && description.trim().length >= 10 && categoryCode && !submitting;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -183,24 +200,44 @@ export function ReportForm() {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[var(--color-ink-soft)] mb-1">{t.title}</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-[var(--color-ink-soft)]">{t.title} *</label>
+            <span className={`text-[11px] font-mono ${title.trim().length >= 5 ? "text-[var(--color-good-700)]" : "text-[var(--color-ink-soft)]"}`}>
+              {title.trim().length}/5 {lang === "kn" ? "ಕನಿಷ್ಠ" : "min"}
+            </span>
+          </div>
           <input
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => { setTitle(e.target.value); setError(null); }}
             placeholder={lang === "kn" ? "ಉದಾಹರಣೆಗೆ: ಶಾಲೆಯ ಗೇಟ್ ಬಳಿ ದೊಡ್ಡ ಗುಂಡಿ" : "Large pothole near the school gate"}
-            className="w-full rounded-md border border-[var(--color-line-strong)] bg-[var(--color-paper-raised)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-teal-600)]"
+            className={`w-full rounded-md border bg-[var(--color-paper-raised)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-teal-600)] ${
+              title.length > 0 && title.trim().length < 5 ? "border-[var(--color-warn-500)]" : "border-[var(--color-line-strong)]"
+            }`}
           />
+          {title.length > 0 && title.trim().length < 5 && (
+            <p className="text-[11px] text-[var(--color-warn-700)] mt-1">{t.titleMinLength}</p>
+          )}
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-[var(--color-ink-soft)] mb-1">{t.description}</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-[var(--color-ink-soft)]">{t.description} *</label>
+            <span className={`text-[11px] font-mono ${description.trim().length >= 10 ? "text-[var(--color-good-700)]" : "text-[var(--color-ink-soft)]"}`}>
+              {description.trim().length}/10 {lang === "kn" ? "ಕನಿಷ್ಠ" : "min"}
+            </span>
+          </div>
           <textarea
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => { setDescription(e.target.value); setError(null); }}
             rows={4}
             placeholder={lang === "kn" ? "ಏನು ಸಮಸ್ಯೆಯಾಗಿದೆ ಮತ್ತು ಏಕೆ ಮುಖ್ಯ - ಉದಾ: ದ್ವಿಚಕ್ರ ವಾಹನ ಸವಾರರು ತಪ್ಪಿಸಲು ವಾಹನಗಳ ನಡುವೆ ನುಗ್ಗುತ್ತಿದ್ದಾರೆ." : "What's wrong, and why it matters - e.g. two-wheelers are swerving into traffic to avoid it."}
-            className="w-full rounded-md border border-[var(--color-line-strong)] bg-[var(--color-paper-raised)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-teal-600)] resize-none"
+            className={`w-full rounded-md border bg-[var(--color-paper-raised)] px-3 py-2.5 text-sm outline-none focus:border-[var(--color-teal-600)] resize-none ${
+              description.length > 0 && description.trim().length < 10 ? "border-[var(--color-warn-500)]" : "border-[var(--color-line-strong)]"
+            }`}
           />
+          {description.length > 0 && description.trim().length < 10 && (
+            <p className="text-[11px] text-[var(--color-warn-700)] mt-1">{t.descMinLength}</p>
+          )}
         </div>
 
         <div>
@@ -369,18 +406,45 @@ export function ReportForm() {
 
         {error && <Callout tone="danger">{error}</Callout>}
 
+        {(!canSubmit || hasUnresolvedDuplicate) && !submitting && (
+          <div className="text-xs text-[var(--color-ink-soft)] bg-[var(--color-paper-raised)] border border-[var(--color-line)] p-3 rounded-md space-y-1.5">
+            <p className="font-semibold text-[var(--color-ink)]">
+              {lang === "kn" ? "ದೂರು ಸಲ್ಲಿಸಲು ಅಗತ್ಯ ವಿವರಗಳು:" : "Requirements to submit:"}
+            </p>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1.5">
+                <span className={title.trim().length >= 5 ? "text-[var(--color-good-700)] font-bold" : "text-[var(--color-warn-700)]"}>
+                  {title.trim().length >= 5 ? "✓" : "○"}
+                </span>
+                <span className={title.trim().length >= 5 ? "text-[var(--color-good-700)]" : "text-[var(--color-ink-soft)]"}>
+                  {t.titleMinLength} ({title.trim().length}/5 {lang === "kn" ? "ಅಕ್ಷರಗಳು" : "chars"})
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={description.trim().length >= 10 ? "text-[var(--color-good-700)] font-bold" : "text-[var(--color-warn-700)]"}>
+                  {description.trim().length >= 10 ? "✓" : "○"}
+                </span>
+                <span className={description.trim().length >= 10 ? "text-[var(--color-good-700)]" : "text-[var(--color-ink-soft)]"}>
+                  {t.descMinLength} ({description.trim().length}/10 {lang === "kn" ? "ಅಕ್ಷರಗಳು" : "chars"})
+                </span>
+              </div>
+              {hasUnresolvedDuplicate && (
+                <div className="flex items-center gap-1.5 text-[var(--color-warn-700)] font-medium">
+                  <span>⚠</span>
+                  <span>{t.resolveDuplicateNotice}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <Button
           onClick={handleSubmit}
-          disabled={!canSubmit || hasUnresolvedDuplicate}
+          disabled={submitting}
           className="w-full"
         >
           {submitting ? t.submitting : t.submit}
         </Button>
-        {hasUnresolvedDuplicate && (
-          <p className="text-xs text-[var(--color-ink-soft)] text-center -mt-2">
-            Follow the existing complaint above, or confirm this is a separate issue, to continue.
-          </p>
-        )}
       </div>
     </div>
   );
