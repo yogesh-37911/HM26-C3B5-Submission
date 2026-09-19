@@ -20,8 +20,9 @@ class Settings:
     # with zero external services. Set DATABASE_URL to a Postgres DSN for
     # production / Supabase. See docs/setup.md.
     _raw_db = os.getenv("DATABASE_URL", "sqlite:///./civicpulse.db")
+    _sqlite_file = os.path.join(BACKEND_DIR, _raw_db[12:]).replace("\\", "/") if _raw_db.startswith("sqlite:///./") else ""
     DATABASE_URL: str = (
-        f"sqlite:///{os.path.join(BACKEND_DIR, _raw_db[12:]).replace('\\', '/')}"
+        f"sqlite:///{_sqlite_file}"
         if _raw_db.startswith("sqlite:///./")
         else _raw_db
     )
