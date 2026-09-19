@@ -51,7 +51,8 @@ class Settings:
     MAX_PAGE_SIZE: int = 200
 
     CORS_ORIGINS: list[str] = os.getenv(
-        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://[::1]:5173,http://localhost:8000,http://127.0.0.1:8000,http://[::1]:8000",
     ).split(",")
 
     def is_sqlite(self) -> bool:

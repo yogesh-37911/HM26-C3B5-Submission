@@ -6,41 +6,42 @@ final submission.
 ## Project
 
 - **Project title:** Mysuru CivicPulse
-- **Team ID:** `<TEAM_ID>`
+- **Team ID:** `HM26-C3B5`
 - **Sub-problem:** SUB-PROBLEM 2 - Follow-through (with Routing,
   Verification, Visibility integrated)
 
 ## Links
 
 - **Live demo URL:** `<PLACEHOLDER>`
-- **GitHub repository URL:** `<PLACEHOLDER>`
+- **GitHub repository URL:** `https://github.com/yogesh-37911/HM26-C3B5-Submission.git`
 - **Demo video URL:** `<PLACEHOLDER>`
-- **Decision log PDF:** `<PLACEHOLDER>` (source: `resource-templates/decision-log-template.md`)
+- **Decision log PDF:** (https://drive.google.com/file/d/1PxT2nKwRqM7u_1JYiwuwsGBOyQY4pzA6/view?usp=sharing)
+  First 16 Charactes of SHA-256 hash of the PDF = `E22962781900B03B'
 - **Presentation PDF:** `<PLACEHOLDER>` (source: `resource-templates/presentation-template.md`)
 
 ## Documentation
 
-| Document | Path |
-|---|---|
-| Problem understanding, solution overview, decision log summary | [README.md](README.md) |
-| AI usage disclosure | [ai.md](ai.md) |
-| System architecture, diagrams, schema | [docs/architecture.md](docs/architecture.md) |
-| Hard-constraint responses | [docs/constraints.md](docs/constraints.md) |
-| Known limitations & roadmap | [docs/limitations.md](docs/limitations.md) |
-| Setup & run instructions | [docs/setup.md](docs/setup.md) |
-| Screenshots | [docs/images/](docs/images/) |
+| Document                                                       | Path                                         |
+| -------------------------------------------------------------- | -------------------------------------------- |
+| Problem understanding, solution overview, decision log summary | [README.md](README.md)                       |
+| AI usage disclosure                                            | [ai.md](ai.md)                               |
+| System architecture, diagrams, schema                          | [docs/architecture.md](docs/architecture.md) |
+| Hard-constraint responses                                      | [docs/constraints.md](docs/constraints.md)   |
+| Known limitations & roadmap                                    | [docs/limitations.md](docs/limitations.md)   |
+| Setup & run instructions                                       | [docs/setup.md](docs/setup.md)               |
+| Screenshots                                                    | [docs/images/](docs/images/)                 |
 
 ## Demo credentials
 
 All demo accounts share the password `CivicPulse@2026` (configurable via the
 `DEMO_PASSWORD` environment variable before seeding).
 
-| Role | Email |
-|---|---|
-| Citizen | `citizen@demo.local` |
-| Officer (MCC Ward 42) | `officer@demo.local` |
-| Field worker (MCC Ward 42) | `worker@demo.local` |
-| Admin | `admin@demo.local` |
+| Role                       | Email                |
+| -------------------------- | -------------------- |
+| Citizen                    | `citizen@demo.local` |
+| Officer (MCC Ward 42)      | `officer@demo.local` |
+| Field worker (MCC Ward 42) | `worker@demo.local`  |
+| Admin                      | `admin@demo.local`   |
 
 ## Important screenshots
 
