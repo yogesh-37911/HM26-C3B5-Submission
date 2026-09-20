@@ -19,9 +19,9 @@ final submission.
 -  
   **Demo Video URL of Coding:** <https://drive.google.com/file/d/1j9wGmBQ1th_puqV6_URHQnbwp8ZzjDbM/view?usp=drive_link>
 - **Decision log PDF:** <https://drive.google.com/file/d/1PxT2nKwRqM7u_1JYiwuwsGBOyQY4pzA6/view?usp=sharing>
-  First 16 Charactes of SHA-256 hash of the PDF = `E22962781900B03B'
+-  First 16 Charactes of SHA-256 hash of the PDF = `E22962781900B03B'
 - **Presentation PDF:** <https://drive.google.com/file/d/1PxT2nKwRqM7u_1JYiwuwsGBOyQY4pzA6/view?usp=drive_link>
-  SHA-256 hash od PPT PDF = '2BF808A4551C94C2D'
+- SHA-256 hash of PPT PDF = '2BF808A4551C94C2D'
 
 ## Documentation
 
