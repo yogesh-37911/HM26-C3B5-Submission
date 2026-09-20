@@ -12,12 +12,15 @@ final submission.
 
 ## Links
 
-- **Live demo URL:** `<PLACEHOLDER>`
-- **GitHub repository URL:** `https://github.com/yogesh-37911/HM26-C3B5-Submission.git`
-- **Demo video URL:** `<PLACEHOLDER>`
-- **Decision log PDF:** (https://drive.google.com/file/d/1PxT2nKwRqM7u_1JYiwuwsGBOyQY4pzA6/view?usp=sharing)
+- **Live demo URL:** <https://mysuru-pulse.onrender.com>
+- **GitHub repository URL:** <https://github.com/yogesh-37911/HM26-C3B5-Submission.git>
+- **Demo video URL:** <https://drive.google.com/file/d/1jjCTBL7PrHxPUSE_--pFWkwRzSA_QC0D/view?usp=drive_link>
+  SHA-256 hash: 221C75950502E980
+  **Demo Video URL of Coding:** <https://drive.google.com/file/d/1j9wGmBQ1th_puqV6_URHQnbwp8ZzjDbM/view?usp=drive_link>
+- **Decision log PDF:** <https://drive.google.com/file/d/1PxT2nKwRqM7u_1JYiwuwsGBOyQY4pzA6/view?usp=sharing>
   First 16 Charactes of SHA-256 hash of the PDF = `E22962781900B03B'
-- **Presentation PDF:** `<PLACEHOLDER>` (source: `resource-templates/presentation-template.md`)
+- **Presentation PDF:** <https://drive.google.com/file/d/1PxT2nKwRqM7u_1JYiwuwsGBOyQY4pzA6/view?usp=drive_link>
+  SHA-256 hash od PPT PDF = '2BF808A4551C94C2D'
 
 ## Documentation
 
@@ -29,7 +32,6 @@ final submission.
 | Hard-constraint responses                                      | [docs/constraints.md](docs/constraints.md)   |
 | Known limitations & roadmap                                    | [docs/limitations.md](docs/limitations.md)   |
 | Setup & run instructions                                       | [docs/setup.md](docs/setup.md)               |
-| Screenshots                                                    | [docs/images/](docs/images/)                 |
 
 ## Demo credentials
 
@@ -42,18 +44,6 @@ All demo accounts share the password `CivicPulse@2026` (configurable via the
 | Officer (MCC Ward 42)      | `officer@demo.local` |
 | Field worker (MCC Ward 42) | `worker@demo.local`  |
 | Admin                      | `admin@demo.local`   |
-
-## Important screenshots
-
-Populate `docs/images/` and link here before submission:
-
-- [ ] Citizen report flow (with duplicate-detection prompt)
-- [ ] Officer dashboard - queue sorted by risk
-- [ ] Complaint detail - risk & priority "why" panels
-- [ ] Public dashboard - "why is this ward behind?" panel
-- [ ] Jurisdiction boundary-change demo (before/after)
-- [ ] Dasara surge simulation in progress
-- [ ] Field worker offline queue / sync
 
 ## AI disclosure
 
@@ -68,8 +58,8 @@ human-reviewed before submission.
 SHA-256 hashes of final external deliverables (fill in at submission time):
 
 ```
-demo-video.mp4:        <PLACEHOLDER>
-decision-log.pdf:      <PLACEHOLDER>
+demo-video.mp4:        221C75950502E980
+decision-log.pdf:      E22962781900B03B
 presentation.pdf:      <PLACEHOLDER>
 ```
 
