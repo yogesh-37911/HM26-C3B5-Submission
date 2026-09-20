@@ -47,6 +47,12 @@ export function ComplaintDetailPage() {
   const [sendingNote, setSendingNote] = useState(false);
   const [noteSentSuccess, setNoteSentSuccess] = useState(false);
 
+  // Field Worker action states
+  const [workCompletionNote, setWorkCompletionNote] = useState("");
+  const [completingWork, setCompletingWork] = useState(false);
+  const [workCompletedSuccess, setWorkCompletedSuccess] = useState(false);
+  const [startingTask, setStartingTask] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const token = localStorage.getItem("civicpulse.token") || "";
 
@@ -85,7 +91,7 @@ export function ComplaintDetailPage() {
 
     setUploadingEvidence(true);
     try {
-      const stage = (isOfficerLike || isFieldWorker) ? "FIELD" : "REPORT";
+      const stage = isOfficerLike || isFieldWorker ? "FIELD" : "REPORT";
       for (let i = 0; i < files.length; i++) {
         const fd = new FormData();
         fd.append("file", files[i]);
@@ -138,6 +144,52 @@ export function ComplaintDetailPage() {
     }
   }
 
+  async function handleStartTask() {
+    if (!complaint) return;
+    setStartingTask(true);
+    setError(null);
+    try {
+      const taskId = complaint.assignment?.task_id;
+      if (taskId) {
+        await api.post(`/api/field-worker/tasks/${taskId}/start`);
+      } else {
+        await api.patch(`/api/complaints/${id}/status`, { to_status: "IN_PROGRESS" });
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not start inspection.");
+    } finally {
+      setStartingTask(false);
+    }
+  }
+
+  async function handleCompleteTask(resolved: boolean = true) {
+    if (!complaint) return;
+    setCompletingWork(true);
+    setError(null);
+    try {
+      const taskId = complaint.assignment?.task_id;
+      const note =
+        workCompletionNote.trim() ||
+        (resolved ? "Work completed and verified on site." : "Unable to resolve on site.");
+      if (taskId) {
+        await api.post(`/api/field-worker/tasks/${taskId}/complete`, undefined, { note, resolved });
+      } else {
+        await api.patch(`/api/complaints/${id}/status`, {
+          to_status: resolved ? "FIELD_VERIFIED" : "ROUTED",
+        });
+      }
+      setWorkCompletionNote("");
+      setWorkCompletedSuccess(true);
+      setTimeout(() => setWorkCompletedSuccess(false), 6000);
+      await load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not complete task.");
+    } finally {
+      setCompletingWork(false);
+    }
+  }
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setSelectedPhoto(null);
@@ -167,7 +219,9 @@ export function ComplaintDetailPage() {
 
   useEffect(() => {
     if (isOfficerLike) {
-      api.get<{ items: { id: number; full_name: string }[] }>("/api/auth/field-workers").then((r) => setWorkers(r.items));
+      api
+        .get<{ items: { id: number; full_name: string }[] }>("/api/auth/field-workers")
+        .then((r) => setWorkers(r.items));
     }
   }, [isOfficerLike]);
 
@@ -234,6 +288,7 @@ export function ComplaintDetailPage() {
   if (!complaint) return <Spinner />;
 
   const c = complaint;
+  const fieldPhotosCount = c.evidence.filter((e) => e.stage === "FIELD").length;
 
   return (
     <div className="grid lg:grid-cols-[1.5fr_1fr] gap-10">
@@ -263,6 +318,41 @@ export function ComplaintDetailPage() {
           <p className="text-xs">{c.jurisdiction.note}</p>
           {c.jurisdiction.reason && <p className="text-xs italic">{c.jurisdiction.reason}</p>}
         </div>
+
+        {/* Assigned Worker Details Banner */}
+        {c.assignment && (
+          <div className="mt-4 p-4 rounded-lg border border-[var(--color-line-strong)] bg-[var(--color-paper-raised)]">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-teal-700)] flex items-center gap-1.5">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                Assigned Field Worker
+              </span>
+              <span className="text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-full bg-[var(--color-teal-100)] border border-[var(--color-teal-700)]/30 text-[var(--color-teal-800)]">
+                {c.assignment.state || "ASSIGNED"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <p className="text-sm font-semibold text-[var(--color-ink)]">{c.assignment.worker_name}</p>
+                {c.assignment.worker_email && (
+                  <p className="text-xs text-[var(--color-ink-soft)] font-mono">{c.assignment.worker_email}</p>
+                )}
+              </div>
+              <div className="text-right text-xs text-[var(--color-ink-soft)]">
+                <p>Assigned: {formatDateTime(c.assignment.assigned_at)}</p>
+                {c.assignment.started_at && <p className="text-[var(--color-teal-700)]">Started: {formatDateTime(c.assignment.started_at)}</p>}
+              </div>
+            </div>
+            {c.assignment.note && (
+              <p className="text-xs text-[var(--color-ink-soft)] italic mt-2 bg-[var(--color-paper)] p-2 rounded border border-[var(--color-line)]">
+                Assignment Note: {c.assignment.note}
+              </p>
+            )}
+          </div>
+        )}
 
         {typeof c.latitude === "number" && (
           <div className="mt-5 relative isolate z-0">
@@ -297,9 +387,14 @@ export function ComplaintDetailPage() {
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--color-paper-raised)] border border-[var(--color-line-strong)] text-[var(--color-ink-soft)]">
                 {c.evidence.length}
               </span>
+              {fieldPhotosCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-gold-700)] bg-[var(--color-gold-100)] px-2 py-0.5 rounded-full">
+                  ✓ {fieldPhotosCount} {t.fieldPhoto}
+                </span>
+              )}
               <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--color-good-700)] bg-[var(--color-good-100)] px-2 py-0.5 rounded-full">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 6 9 17l-5-5"/>
+                  <path d="M20 6 9 17l-5-5" />
                 </svg>
                 {t.sharedWithOfficerBadge}
               </span>
@@ -329,19 +424,23 @@ export function ComplaintDetailPage() {
                 disabled={busy || uploadingEvidence}
                 onClick={() => fileInputRef.current?.click()}
               >
-                {uploadingEvidence ? t.uploading : `+ ${isOfficerLike || isFieldWorker ? t.addFieldPhoto : t.addPhoto}`}
+                {uploadingEvidence
+                  ? t.uploading
+                  : isFieldWorker
+                    ? "📸 Attach Completion Photos"
+                    : `+ ${isOfficerLike ? t.addFieldPhoto : t.addPhoto}`}
               </Button>
             </div>
           </div>
 
-          {/* Send Update to Officer Form / Modal Banner */}
+          {/* Send Update to Officer Form */}
           {showNotifyOfficer && (
             <div className="mb-4 p-4 rounded-lg border border-[var(--color-teal-600)] bg-[var(--color-teal-100)]/20 animate-in fade-in duration-150">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-semibold text-[var(--color-teal-800)] flex items-center gap-1.5">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m22 2-7 20-4-9-9-4Z"/>
-                    <path d="M22 2 11 13"/>
+                    <path d="m22 2-7 20-4-9-9-4Z" />
+                    <path d="M22 2 11 13" />
                   </svg>
                   {t.notifyOfficer}
                 </p>
@@ -389,7 +488,7 @@ export function ComplaintDetailPage() {
           {noteSentSuccess && (
             <div className="mb-3 p-3 rounded-md bg-[var(--color-good-100)] text-[var(--color-good-700)] text-xs font-medium flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6 9 17l-5-5"/>
+                <path d="M20 6 9 17l-5-5" />
               </svg>
               {t.updateSent}
             </div>
@@ -432,10 +531,10 @@ export function ComplaintDetailPage() {
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                       <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/75 text-white text-xs px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 shadow">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="11" cy="11" r="8"/>
-                          <path d="m21 21-4.3-4.3"/>
-                          <path d="M11 8v6"/>
-                          <path d="M8 11h6"/>
+                          <circle cx="11" cy="11" r="8" />
+                          <path d="m21 21-4.3-4.3" />
+                          <path d="M11 8v6" />
+                          <path d="M8 11h6" />
                         </svg>
                         {t.clickToEnlarge}
                       </span>
@@ -462,7 +561,6 @@ export function ComplaintDetailPage() {
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-[var(--color-line)] text-[11px] text-[var(--color-ink-soft)]">
                       <span>{formatDateTime(ev.created_at)}</span>
 
-                      {/* Delete Photo Button with confirmation */}
                       {deleteConfirmId === ev.id ? (
                         <div className="flex items-center gap-1.5">
                           <button
@@ -577,6 +675,136 @@ export function ComplaintDetailPage() {
           </div>
         )}
 
+        {/* Dedicated Field Worker Execution & Resolution Panel */}
+        {(isFieldWorker || (user?.role === "ADMIN" && c.assigned)) && (
+          <div className="mt-8 border-t border-[var(--color-line)] pt-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[var(--color-ink)] flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-teal-600)]"></span>
+                Field Worker Actions
+              </h3>
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-mono bg-[var(--color-teal-100)] text-[var(--color-teal-800)] font-medium">
+                {c.status}
+              </span>
+            </div>
+
+            {workCompletedSuccess && (
+              <div className="p-3.5 rounded-lg bg-[var(--color-good-100)] text-[var(--color-good-700)] text-xs font-medium flex items-center gap-2.5 animate-in fade-in">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+                <span>Task marked as completed & verified! Sent to Officer for final closure.</span>
+              </div>
+            )}
+
+            {c.status === "ASSIGNED" && (
+              <div className="p-4 rounded-lg bg-[var(--color-paper-raised)] border border-[var(--color-line-strong)] space-y-3">
+                <p className="text-xs text-[var(--color-ink-soft)]">
+                  You are assigned to this task. Click below when you arrive on site to start inspection.
+                </p>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={startingTask || busy}
+                  onClick={handleStartTask}
+                  className="w-full"
+                >
+                  {startingTask ? "Starting inspection..." : "▶ Start Inspection / Begin Work"}
+                </Button>
+              </div>
+            )}
+
+            {["ASSIGNED", "IN_PROGRESS", "REOPENED"].includes(c.status) && (
+              <div className="p-4 rounded-lg bg-[var(--color-paper-raised)] border border-[var(--color-line-strong)] space-y-3.5">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-[var(--color-ink)]">
+                      1. Attach Field Completion Photos
+                    </label>
+                    <span className="text-[11px] font-medium text-[var(--color-gold-700)] bg-[var(--color-gold-100)] px-2 py-0.5 rounded-full">
+                      {fieldPhotosCount} Attached
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={uploadingEvidence}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full text-xs"
+                  >
+                    {uploadingEvidence ? "Uploading photos..." : "📸 Take / Upload Completion Photos"}
+                  </Button>
+                  {fieldPhotosCount === 0 && (
+                    <p className="text-[11px] text-[var(--color-ink-soft)] mt-1 italic">
+                      Tip: Attach a photo of the completed work for instant verification.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+                    2. Work Completion Note
+                  </label>
+                  <textarea
+                    value={workCompletionNote}
+                    onChange={(e) => setWorkCompletionNote(e.target.value)}
+                    rows={2}
+                    placeholder="Describe the repair work done on site (e.g. Pothole filled and compacted)..."
+                    className="w-full rounded-md border border-[var(--color-line-strong)] bg-[var(--color-paper)] px-3 py-2 text-xs outline-none focus:border-[var(--color-teal-600)] resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2 pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="primary"
+                    disabled={completingWork || uploadingEvidence || busy}
+                    onClick={() => handleCompleteTask(true)}
+                    className="w-full bg-[var(--color-good-700)] hover:bg-[var(--color-good-800)] text-white font-medium py-2.5 shadow-sm"
+                  >
+                    {completingWork ? "Marking as completed..." : "✓ Mark Task as Completed & Verified"}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={completingWork || busy}
+                    onClick={() => {
+                      const note = window.prompt("Reason unable to resolve:") || "";
+                      if (note) {
+                        setWorkCompletionNote(note);
+                        handleCompleteTask(false);
+                      }
+                    }}
+                    className="w-full text-xs text-[var(--color-ink-soft)] hover:text-[var(--color-danger-700)]"
+                  >
+                    ⚠️ Unable to Resolve / Request Reassignment
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {["FIELD_VERIFIED", "RESOLVED"].includes(c.status) && (
+              <div className="p-4 rounded-lg bg-[var(--color-good-100)] border border-[var(--color-good-700)]/30 text-[var(--color-good-700)] text-xs space-y-1.5">
+                <p className="font-semibold flex items-center gap-1.5 text-sm">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  Field Work Completed & Verified
+                </p>
+                <p className="text-[var(--color-ink-soft)] text-xs">
+                  {c.status === "FIELD_VERIFIED"
+                    ? "On-site repair verified by Field Worker. Awaiting final closure from Ward Officer."
+                    : "Complaint has been officially closed as resolved."}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {isOfficerLike && (
           <div className="mt-8 border-t border-[var(--color-line)] pt-5 space-y-4">
             <h3 className="text-sm font-medium">Officer actions</h3>
@@ -641,18 +869,6 @@ export function ComplaintDetailPage() {
           </div>
         )}
 
-        {isFieldWorker && (
-          <div className="mt-8 border-t border-[var(--color-line)] pt-5">
-            <p className="text-xs text-[var(--color-ink-soft)]">
-              Manage this job from your{" "}
-              <a href="/field/tasks" className="text-[var(--color-teal-700)] underline">
-                task list
-              </a>
-              .
-            </p>
-          </div>
-        )}
-
         {c.followups.length > 0 && (
           <div className="mt-8 border-t border-[var(--color-line)] pt-5">
             <h3 className="text-sm font-medium mb-2">Follow-ups</h3>
@@ -678,7 +894,7 @@ export function ComplaintDetailPage() {
         </div>
       </div>
 
-      {/* Lightbox / Modal for Viewing Photo Evidence Full Screen (High z-index to prevent map overlay) */}
+      {/* Lightbox / Modal for Viewing Photo Evidence Full Screen */}
       {selectedPhoto && (
         <div
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-150"
@@ -707,7 +923,6 @@ export function ComplaintDetailPage() {
                 <p className="text-sm font-medium text-[var(--color-ink)] mt-0.5 truncate max-w-md">{selectedPhoto.filename}</p>
               </div>
               <div className="flex items-center gap-2">
-                {/* Delete button from modal */}
                 <button
                   type="button"
                   disabled={deletingEvidenceId === selectedPhoto.id}

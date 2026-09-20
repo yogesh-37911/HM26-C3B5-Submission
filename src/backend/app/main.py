@@ -80,10 +80,13 @@ def on_startup() -> None:
         if user_count == 0:
             log.info("Empty database detected; auto-seeding demonstration data...")
             try:
-                scripts_dir = os.path.abspath(os.path.join(settings.BACKEND_DIR, "..", "scripts"))
-                if scripts_dir not in sys.path:
-                    sys.path.insert(0, scripts_dir)
-                import seed
+                try:
+                    from . import seed
+                except (ImportError, ValueError):
+                    scripts_dir = os.path.abspath(os.path.join(settings.BACKEND_DIR, "..", "scripts"))
+                    if scripts_dir not in sys.path:
+                        sys.path.insert(0, scripts_dir)
+                    import seed
                 cats = seed.seed_categories(db)
                 jurs = seed.seed_jurisdictions(db)
                 db.commit()

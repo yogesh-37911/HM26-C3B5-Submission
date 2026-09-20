@@ -56,6 +56,20 @@ def complaint_summary(db: Session, c: Complaint, *, include_private: bool) -> di
     cat = db.get(Category, c.category_id)
     jur = db.get(Jurisdiction, c.jurisdiction_id) if c.jurisdiction_id else None
     age_h = (utcnow() - _aware(c.created_at)).total_seconds() / 3600.0
+    active_a = svc.active_assignment(db, c.id)
+    assignment_info = None
+    if active_a:
+        worker = db.get(User, active_a.field_worker_id)
+        assignment_info = {
+            "task_id": active_a.id,
+            "field_worker_id": active_a.field_worker_id,
+            "worker_name": worker.full_name if worker else "Field Worker",
+            "worker_email": worker.email if worker else None,
+            "assigned_at": _aware(active_a.assigned_at).isoformat() if active_a.assigned_at else None,
+            "started_at": _aware(active_a.started_at).isoformat() if active_a.started_at else None,
+            "state": active_a.state,
+            "note": active_a.note,
+        }
     out = {
         "id": c.id, "public_id": c.public_id, "title": c.title,
         "category": {"code": cat.code, "name_en": cat.name_en, "name_kn": cat.name_kn},
@@ -70,7 +84,8 @@ def complaint_summary(db: Session, c: Complaint, *, include_private: bool) -> di
         "last_action_at": _aware(c.last_action_at).isoformat(),
         "sla": svc.sla_for(db, c),
         "is_synthetic": c.is_synthetic,
-        "assigned": svc.active_assignment(db, c.id) is not None,
+        "assigned": active_a is not None,
+        "assignment": assignment_info,
     }
     if include_private:
         out.update({"latitude": c.latitude, "longitude": c.longitude,

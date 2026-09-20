@@ -34,6 +34,17 @@ export interface SlaState {
   note?: string;
 }
 
+export interface AssignmentInfo {
+  task_id: number;
+  field_worker_id: number;
+  worker_name: string;
+  worker_email?: string | null;
+  assigned_at: string;
+  started_at: string | null;
+  state: string;
+  note?: string | null;
+}
+
 export interface ComplaintSummary {
   id: number;
   public_id: string;
@@ -54,6 +65,7 @@ export interface ComplaintSummary {
   sla: SlaState;
   is_synthetic: boolean;
   assigned: boolean;
+  assignment?: AssignmentInfo | null;
   latitude?: number;
   longitude?: number;
   description?: string;
