@@ -61,7 +61,7 @@ SHA-256 hashes of final external deliverables (fill in at submission time):
 ```
 demo-video.mp4:        221C75950502E980
 decision-log.pdf:      E22962781900B03B
-presentation.pdf:      <PLACEHOLDER>
+presentation.pdf:      2BF808A4551C94C2D  
 ```
 
 ## Dataset disclosure
