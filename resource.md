@@ -17,6 +17,7 @@ Central landing file for reviewers. Fill in the placeholders below before final 
 - **Demo video SHA-256:** `221C75950502E980`
 
 - **Coding walkthrough video URL:** <https://drive.google.com/file/d/1j9wGmBQ1th_puqV6_URHQnbwp8ZzjDbM/view?usp=drive_link>
+- **Coding walkthrough SHA-256:** `7741BBE92047909D`
 
 - **Decision log PDF:** <https://drive.google.com/file/d/1PxT2nKwRqM7u_1JYiwuwsGBOyQY4pzA6/view?usp=sharing>
 - **Decision log SHA-256:** `E22962781900B03B`
