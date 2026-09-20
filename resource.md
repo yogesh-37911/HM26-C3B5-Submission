@@ -15,7 +15,8 @@ final submission.
 - **Live demo URL:** <https://mysuru-pulse.onrender.com>
 - **GitHub repository URL:** <https://github.com/yogesh-37911/HM26-C3B5-Submission.git>
 - **Demo video URL:** <https://drive.google.com/file/d/1jjCTBL7PrHxPUSE_--pFWkwRzSA_QC0D/view?usp=drive_link>
-  SHA-256 hash: 221C75950502E980
+-  SHA-256 hash: 221C75950502E980
+-  
   **Demo Video URL of Coding:** <https://drive.google.com/file/d/1j9wGmBQ1th_puqV6_URHQnbwp8ZzjDbM/view?usp=drive_link>
 - **Decision log PDF:** <https://drive.google.com/file/d/1PxT2nKwRqM7u_1JYiwuwsGBOyQY4pzA6/view?usp=sharing>
   First 16 Charactes of SHA-256 hash of the PDF = `E22962781900B03B'
